@@ -364,40 +364,36 @@ export default function App() {
   const catColor=Object.fromEntries(cats.map(c=>[c.name,c.color]));
 
   useEffect(()=>{
-    (async()=>{
-      try {
-        const res=await window.storage.get(KEY);
-        if(res&&res.value){
-          const d=JSON.parse(res.value);
-          const cloud=d.tasks||[];
-          const ids=new Set(cloud.map(t=>t.id));
-          const merged=[...cloud,...INIT.filter(t=>!ids.has(t.id))];
-          const maxId=Math.max(...merged.map(t=>t.id),68);
-          setTasks(merged); setNextId(Math.max(d.nextId||69,maxId+1));
-        } else { setTasks(INIT); setNextId(69); }
-      } catch(e){ try{const s=localStorage.getItem(KEY);if(s){const d=JSON.parse(s);setTasks(d.tasks||INIT);setNextId(d.nextId||69);}else setTasks(INIT);}catch(e2){setTasks(INIT);} }
-      finally { setLoading(false); }
-    })();
+    try {
+      const s=localStorage.getItem(KEY);
+      if(s){
+        const d=JSON.parse(s);
+        const saved=d.tasks||[];
+        const ids=new Set(saved.map(t=>t.id));
+        const merged=[...saved,...INIT.filter(t=>!ids.has(t.id))];
+        const maxId=Math.max(...merged.map(t=>t.id),68);
+        setTasks(merged); setNextId(Math.max(d.nextId||69,maxId+1));
+      } else { setTasks(INIT); setNextId(69); }
+    } catch(e){ setTasks(INIT); }
+    finally { setLoading(false); }
   },[]);
 
   useEffect(()=>{
-    (async()=>{
-      try{ const res=await window.storage.get(CAT_KEY); if(res&&res.value) setCats(JSON.parse(res.value)); else setCats(DEFAULT_CATS); }
-      catch(e){ setCats(DEFAULT_CATS); }
-    })();
+    try{ const s=localStorage.getItem(CAT_KEY); if(s) setCats(JSON.parse(s)); else setCats(DEFAULT_CATS); }
+    catch(e){ setCats(DEFAULT_CATS); }
   },[]);
 
   useEffect(()=>{
     if(loading) return;
     setSaveStatus("saving");
-    const timer=setTimeout(async()=>{
-      try{ await window.storage.set(KEY,JSON.stringify({tasks,nextId})); setSaveStatus("saved"); }
-      catch(e){ try{localStorage.setItem(KEY,JSON.stringify({tasks,nextId}));}catch(e2){} setSaveStatus("local"); }
+    const timer=setTimeout(()=>{
+      try{ localStorage.setItem(KEY,JSON.stringify({tasks,nextId})); setSaveStatus("saved"); }
+      catch(e){ setSaveStatus("local"); }
     },600);
     return ()=>clearTimeout(timer);
   },[tasks,nextId,loading]);
 
-  useEffect(()=>{ if(loading) return; window.storage.set(CAT_KEY,JSON.stringify(cats)).catch(()=>{}); },[cats,loading]);
+  useEffect(()=>{ if(loading) return; try{ localStorage.setItem(CAT_KEY,JSON.stringify(cats)); }catch(e){} },[cats,loading]);
 
   const addTask=(text,forceCat=null)=>{ const p=parseNatural(text,cats); if(forceCat) p.cat=forceCat; setTasks(prev=>[...prev,{...p,id:nextId,created:nextId}]); setNextId(n=>n+1); };
   const cycleStatus=id=>{ const o=["todo","prog","done"]; setTasks(prev=>prev.map(t=>t.id===id?{...t,status:o[(o.indexOf(t.status)+1)%3]}:t)); };
